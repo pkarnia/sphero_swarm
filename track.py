@@ -11,7 +11,7 @@ import time
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video",
 	help="path to the (optional) video file")
-ap.add_argument("-b", "--buffer", type=int, default=64,
+ap.add_argument("-b", "--buffer", type=int, default=30,
 	help="max buffer size")
 args = vars(ap.parse_args())
 
@@ -87,18 +87,43 @@ while True:
 
 	# update the points queue
 	pts.appendleft(center)
+	
+	x_sum = 0.0
+	y_sum = 0.0
+
+	for i in range(1,len(pts)):
+		if pts[i-1] is None or pts[i] is None:
+			continue
+		x_sum += pts[i-1][0]
+		y_sum += pts[i-1][1]
+		
+	x_avg = x_sum / len(pts)
+	y_avg = y_sum / len(pts)
+
+	rise_sum = 0.0
+	run_sum = 0.0
 
 	# loop over the set of tracked points
 	for i in range(1, len(pts)):
-		# if either of the tracked points are None, ignore
-		# them
 		if pts[i - 1] is None or pts[i] is None:
 			continue
+		rise_sum += (pts[i-1][0]-x_avg)*(pts[i-1][1]-y_avg)
+		run_sum += (pts[i-1][0]-x_avg)^2
 
-		# otherwise, compute the thickness of the line and
-		# draw the connecting lines
-		thickness = int(np.sqrt(args["buffer"] / float(i + 1)) * 2.5)
-		cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
+	slope = rise / run
+	
+	best_fit = []
+	
+	for i in range(1, len(pts)):
+		if pts[i-1] is None or pts[i] is None:
+			continue
+		if i == 0:
+			best_fit.append(pts[0])
+		else:
+			y = (slope*(pts[i-1][0]-pts[0][0]))+pts[0][1]
+			best_fit.append((pts[i-1][0],y))
+
+	cv2.line(frame, best_fit[i - 1], best_fit[i], (0, 0, 255), 5)
 
 	# show the frame to our screen
 	cv2.imshow("Frame", frame)
